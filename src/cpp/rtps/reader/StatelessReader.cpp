@@ -35,7 +35,7 @@
 #include <rtps/builtin/liveliness/WLP.hpp>
 #include <rtps/DataSharing/DataSharingListener.hpp>
 #include <rtps/DataSharing/ReaderPool.hpp>
-#include <rtps/participant/RTPSParticipantImpl.h>
+#include <rtps/participant/RTPSParticipantImpl.hpp>
 #include <rtps/reader/StatelessReader.hpp>
 #include <rtps/writer/LivelinessManager.hpp>
 #ifdef FASTDDS_STATISTICS
@@ -519,6 +519,19 @@ void StatelessReader::end_sample_access_nts(
             --total_unread_;
         }
     }
+}
+
+bool StatelessReader::matched_writers_guids(
+        std::vector<GUID_t>& guids) const
+{
+    std::lock_guard<RecursiveTimedMutex> guard(mp_mutex);
+    guids.clear();
+    guids.reserve(matched_writers_.size());
+    for (const RemoteWriterInfo_t& writer : matched_writers_)
+    {
+        guids.emplace_back(writer.guid);
+    }
+    return true;
 }
 
 #ifdef FASTDDS_STATISTICS

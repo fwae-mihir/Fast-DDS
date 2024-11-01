@@ -39,7 +39,7 @@
 #include <rtps/DataSharing/ReaderPool.hpp>
 #include <rtps/history/HistoryAttributesExtension.hpp>
 #include <rtps/messages/RTPSMessageGroup.hpp>
-#include <rtps/participant/RTPSParticipantImpl.h>
+#include <rtps/participant/RTPSParticipantImpl.hpp>
 #include <rtps/reader/WriterProxy.h>
 #include <rtps/writer/LivelinessManager.hpp>
 #ifdef FASTDDS_STATISTICS
@@ -1490,6 +1490,19 @@ void StatefulReader::end_sample_access_nts(
     {
         send_ack_if_datasharing(this, history_, writer, change->sequenceNumber);
     }
+}
+
+bool StatefulReader::matched_writers_guids(
+        std::vector<GUID_t>& guids) const
+{
+    std::lock_guard<RecursiveTimedMutex> guard(mp_mutex);
+    guids.clear();
+    guids.reserve(matched_writers_.size());
+    for (WriterProxy* writer : matched_writers_)
+    {
+        guids.emplace_back(writer->guid());
+    }
+    return true;
 }
 
 #ifdef FASTDDS_STATISTICS

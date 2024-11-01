@@ -43,7 +43,7 @@
 #include <rtps/history/HistoryAttributesExtension.hpp>
 #include <rtps/messages/RTPSMessageGroup.hpp>
 #include <rtps/network/utils/external_locators.hpp>
-#include <rtps/participant/RTPSParticipantImpl.h>
+#include <rtps/participant/RTPSParticipantImpl.hpp>
 #include <rtps/reader/BaseReader.hpp>
 #include <rtps/RTPSDomainImpl.hpp>
 #include <rtps/writer/BaseWriter.hpp>
@@ -313,16 +313,16 @@ bool StatelessWriter::intraprocess_delivery(
         CacheChange_t* change,
         ReaderLocator& reader_locator)
 {
-    RTPSReader* reader = reader_locator.local_reader();
+    LocalReaderPointer::Instance local_reader = reader_locator.local_reader();
 
-    if (reader &&
+    if (local_reader &&
             (!reader_data_filter_ || reader_data_filter_->is_relevant(*change, reader_locator.remote_guid())))
     {
         if (change->write_params.related_sample_identity() != SampleIdentity::unknown())
         {
             change->write_params.sample_identity(change->write_params.related_sample_identity());
         }
-        return BaseReader::downcast(reader)->process_data_msg(change);
+        return local_reader->process_data_msg(change);
     }
 
     return false;
@@ -396,6 +396,22 @@ bool StatelessWriter::wait_for_all_acked(
 bool StatelessWriter::get_disable_positive_acks() const
 {
     return false;
+}
+
+bool StatelessWriter::matched_readers_guids(
+        std::vector<GUID_t>& guids) const
+{
+    std::lock_guard<RecursiveTimedMutex> guard(mp_mutex);
+    guids.clear();
+    guids.reserve(matched_local_readers_.size() + matched_datasharing_readers_.size() + matched_remote_readers_.size());
+    for_matched_readers(matched_local_readers_, matched_datasharing_readers_, matched_remote_readers_,
+            [&guids](const ReaderLocator& reader)
+            {
+                guids.emplace_back(reader.remote_guid());
+                return false;
+            }
+            );
+    return true;
 }
 
 bool StatelessWriter::try_remove_change(
@@ -947,7 +963,7 @@ bool StatelessWriter::get_connections(
         //! intraprocess
         for_matched_readers(matched_local_readers_, [&connection, &connection_list](ReaderLocator& reader)
                 {
-                    connection.guid(fastdds::statistics::to_statistics_type(reader.local_reader()->getGuid()));
+                    connection.guid(fastdds::statistics::to_statistics_type(reader.remote_guid()));
                     connection.mode(fastdds::statistics::ConnectionMode::INTRAPROCESS);
                     connection_list.push_back(connection);
 

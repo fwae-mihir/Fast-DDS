@@ -46,8 +46,9 @@
 #include <rtps/messages/RTPSGapBuilder.hpp>
 #include <rtps/messages/RTPSMessageGroup.hpp>
 #include <rtps/network/utils/external_locators.hpp>
-#include <rtps/participant/RTPSParticipantImpl.h>
+#include <rtps/participant/RTPSParticipantImpl.hpp>
 #include <rtps/reader/BaseReader.hpp>
+#include <rtps/reader/LocalReaderPointer.hpp>
 #include <rtps/resources/ResourceEvent.h>
 #include <rtps/resources/TimedEvent.h>
 #include <rtps/RTPSDomainImpl.hpp>
@@ -405,14 +406,14 @@ bool StatefulWriter::intraprocess_delivery(
         CacheChange_t* change,
         ReaderProxy* reader_proxy)
 {
-    BaseReader* reader = reader_proxy->local_reader();
-    if (reader)
+    LocalReaderPointer::Instance local_reader = reader_proxy->local_reader();
+    if (local_reader)
     {
         if (change->write_params.related_sample_identity() != SampleIdentity::unknown())
         {
             change->write_params.sample_identity(change->write_params.related_sample_identity());
         }
-        return reader->process_data_msg(change);
+        return local_reader->process_data_msg(change);
     }
     return false;
 }
@@ -422,10 +423,10 @@ bool StatefulWriter::intraprocess_gap(
         const SequenceNumber_t& first_seq,
         const SequenceNumber_t& last_seq)
 {
-    RTPSReader* reader = reader_proxy->local_reader();
-    if (reader)
+    LocalReaderPointer::Instance local_reader = reader_proxy->local_reader();
+    if (local_reader)
     {
-        return BaseReader::downcast(reader)->process_gap_msg(
+        return local_reader->process_gap_msg(
             m_guid, first_seq, SequenceNumberSet_t(last_seq), c_VendorId_eProsima);
     }
 
@@ -437,12 +438,11 @@ bool StatefulWriter::intraprocess_heartbeat(
         bool liveliness)
 {
     bool returned_value = false;
+    LocalReaderPointer::Instance local_reader = reader_proxy->local_reader();
 
-    std::lock_guard<RecursiveTimedMutex> guardW(mp_mutex);
-    RTPSReader* reader = RTPSDomainImpl::find_local_reader(reader_proxy->guid());
-
-    if (reader)
+    if (local_reader)
     {
+        std::unique_lock<RecursiveTimedMutex> lockW(mp_mutex);
         SequenceNumber_t first_seq = get_seq_num_min();
         SequenceNumber_t last_seq = get_seq_num_max();
 
@@ -459,8 +459,10 @@ bool StatefulWriter::intraprocess_heartbeat(
                 (liveliness || reader_proxy->has_changes()))
         {
             increment_hb_count();
-            returned_value = BaseReader::downcast(reader)->process_heartbeat_msg(
-                m_guid, heartbeat_count_, first_seq, last_seq, true, liveliness, c_VendorId_eProsima);
+            Count_t hb_count = heartbeat_count_;
+            lockW.unlock();
+            returned_value = local_reader->process_heartbeat_msg(
+                m_guid, hb_count, first_seq, last_seq, true, liveliness, c_VendorId_eProsima);
         }
     }
 
@@ -1602,6 +1604,24 @@ void StatefulWriter::update_attributes(
     {
         this->update_positive_acks_times(att);
     }
+}
+
+bool StatefulWriter::matched_readers_guids(
+        std::vector<GUID_t>& guids) const
+{
+    std::lock_guard<RecursiveTimedMutex> guard(mp_mutex);
+    guids.clear();
+    guids.reserve(matched_local_readers_.size() + matched_datasharing_readers_.size() +
+            matched_remote_readers_.size());
+    for_matched_readers(matched_local_readers_, matched_datasharing_readers_, matched_remote_readers_,
+            [&guids](const ReaderProxy* reader)
+            {
+                guids.emplace_back(reader->guid());
+                return false;
+            }
+            );
+
+    return true;
 }
 
 void StatefulWriter::update_positive_acks_times(

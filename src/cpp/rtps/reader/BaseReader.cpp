@@ -42,7 +42,7 @@
 #include <rtps/DataSharing/DataSharingPayloadPool.hpp>
 #include <rtps/history/BasicPayloadPool.hpp>
 #include <rtps/history/CacheChangePool.h>
-#include <rtps/participant/RTPSParticipantImpl.h>
+#include <rtps/participant/RTPSParticipantImpl.hpp>
 #include <rtps/reader/ReaderHistoryState.hpp>
 #include <statistics/rtps/StatisticsBase.hpp>
 
@@ -105,6 +105,11 @@ BaseReader::BaseReader(
 {
     init(payload_pool, change_pool);
     setup_datasharing(att);
+}
+
+void BaseReader::local_actions_on_reader_removed()
+{
+    local_ptr_->deactivate();
 }
 
 BaseReader::~BaseReader()
@@ -270,6 +275,11 @@ void BaseReader::allow_unknown_writers()
 {
     assert(fastdds::rtps::EntityId_t::unknown() != trusted_writer_entity_id_);
     accept_messages_from_unkown_writers_ = true;
+}
+
+std::shared_ptr<LocalReaderPointer> BaseReader::get_local_pointer()
+{
+    return local_ptr_;
 }
 
 bool BaseReader::reserve_cache(
@@ -500,6 +510,8 @@ void BaseReader::init(
     {
         fixed_payload_size_ = history_->m_att.payloadMaxSize;
     }
+
+    local_ptr_ = std::make_shared<LocalReaderPointer>(this);
 
     EPROSIMA_LOG_INFO(RTPS_READER, "RTPSReader created correctly");
 }

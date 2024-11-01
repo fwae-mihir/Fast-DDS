@@ -1,4 +1,4 @@
-// Copyright 2016 Proyectos y Sistemas de Mantenimiento SL (eProsima).
+// Copyright 2024 Proyectos y Sistemas de Mantenimiento SL (eProsima).
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,35 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
- * @file RTPSWriter.cpp
- *
+/**
+ * @file LocalReaderPointer.hpp
  */
 
-#include <fastdds/rtps/writer/RTPSWriter.hpp>
+#ifndef FASTDDS_RTPS_READER__LOCALREADERPOINTER_HPP
+#define FASTDDS_RTPS_READER__LOCALREADERPOINTER_HPP
 
-#include <fastdds/rtps/Endpoint.hpp>
-#include <fastdds/rtps/attributes/WriterAttributes.hpp>
-#include <fastdds/rtps/common/Guid.hpp>
-
-#include <rtps/participant/RTPSParticipantImpl.hpp>
+#include <utils/RefCountedPointer.hpp>
 
 namespace eprosima {
 namespace fastdds {
 namespace rtps {
 
-RTPSWriter::RTPSWriter(
-        RTPSParticipantImpl* impl,
-        const GUID_t& guid,
-        const WriterAttributes& att)
-    : Endpoint(impl, guid, att.endpoint)
-{
-}
+class BaseReader;
 
-RTPSWriter::~RTPSWriter()
-{
-}
+using LocalReaderPointer = RefCountedPointer<BaseReader>;
 
 }  // namespace rtps
 }  // namespace fastdds
 }  // namespace eprosima
+
+#endif // FASTDDS_RTPS_READER__LOCALREADERPOINTER_HPP

@@ -19,7 +19,7 @@
 
 #include <fastdds/rtps/Endpoint.hpp>
 #include <fastdds/rtps/participant/RTPSParticipant.hpp>
-#include <rtps/participant/RTPSParticipantImpl.h>
+#include <rtps/participant/RTPSParticipantImpl.hpp>
 
 namespace eprosima {
 namespace fastdds {
@@ -192,6 +192,20 @@ bool RTPSParticipant::ignore_reader(
 std::vector<TransportNetmaskFilterInfo> RTPSParticipant::get_netmask_filter_info() const
 {
     return mp_impl->get_netmask_filter_info();
+}
+
+bool RTPSParticipant::get_publication_info(
+        PublicationBuiltinTopicData& data,
+        const GUID_t& writer_guid) const
+{
+    return mp_impl->get_publication_info(data, writer_guid);
+}
+
+bool RTPSParticipant::get_subscription_info(
+        SubscriptionBuiltinTopicData& data,
+        const GUID_t& reader_guid) const
+{
+    return mp_impl->get_subscription_info(data, reader_guid);
 }
 
 #if HAVE_SECURITY
